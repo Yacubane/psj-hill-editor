@@ -1,0 +1,66 @@
+// layer
+psjhill:type="layer"
+psjhill:layer-num="0| 1| 2| 3"
+psjhill:layer-type="BACKGROUND | HILL_BODY | HILL_BACKGROUND | HILL_FOREGROUND | FOREGROUND"
+psjhill:layer-name="name"
+// lines are drawn after HILL
+// ski jumper is drawn after HILL_OVERLAY
+
+psjhill:paralax-offset="0.0-1.0" // defaults to 0
+//jumper is drawn after layer 0
+
+// inrun / outrun paths
+psjhill:type="special"
+psjhill:special-type="in-run-physics"
+psjhill:special-type="out-run-physics"
+
+// top and bottom outrun paths for "red" and "green" line
+psjhill:type="special"
+psjhill:special-type="out-run-top"
+psjhill:special-type="out-run-bottom"
+
+// starting area with start bar area
+psjhill:type="special"
+psjhill:special-type="start-bar-area"
+
+// path that crosses HS
+psjhill:type="special"
+psjhill:special-type="hill-size-cross"
+
+// shape that centers viewpoint
+psjhill:type="special"
+psjhill:special-type="viewpoint"
+
+// texture
+psjhill:type="texture"
+psjhill:id="texture1"
+psjhill:texture-multiplier="100.0"
+
+// textured sprite
+psjhill:type="sprite"
+psjhill:texture-id="texture1"
+psjhill:visibility-if="DAY|NIGHT|ALWAYS" 
+
+id="bg3tree1
+
+psjhill:type="sprite"
+psjhill:texture-id="tree1"
+id="bg3tree1
+
+// shape
+psjhill:type="shape"
+psjhill:id="shape1"
+psjhill:visibility-if-modes="DAY|NIGHT|ALWAYS" 
+psjhill:shape-generate-type="NODES|DISTANCE" // defaults to DISTANCE
+psjhill:shape-generate-distance-between-nodes="10.0"
+psjhill:shape-generate-nodes-count-between="10"
+psjhill:shape-cut-enabled="true|false" // defaults to true
+psjhill:shape-cut-grid-size="5" // defaults to 10
+
+psjhill:type="special"
+psjhill:special-type="start-gate-texture"
+psjhill:texture-multiplier="100"
+psjhill:id="start-gate"
+
+psjhill:type="special"
+psjhill:special-type="start-gate-texture-position"
