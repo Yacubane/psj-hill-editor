@@ -362,7 +362,7 @@ class PsjHillEditor(lib.inkex.EffectExtension):
                     'subShapes': clipped
                 })
 
-        if isinstance(node, Group):
+        if isinstance(node, Group) or isinstance(node, PathElement):
             type = util.get_psjhill_attrib(node, 'type')
             if type == 'layer':
                 if layer_num is not None:
