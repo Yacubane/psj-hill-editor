@@ -278,6 +278,7 @@ class PsjHillEditor(lib.inkex.EffectExtension):
         id = util.get_psjhill_attrib(node, 'id', raise_if_none=True)
         multiplier = util.get_psjhill_attrib(
             node, 'texture-multiplier', raise_if_none=True)
+        multiplier = float(multiplier)
         export_width = int(bbox.width * float(multiplier))
         inkscape(self.options.input_file, **{
             'export-width': export_width,

@@ -29,12 +29,12 @@
     "delta0": 50,
     "tau": 0.32,
     "k2base" : 0.5,
-    "k2maxDegradation": 0.35,
+    "k2maxDegradation": 0.4,
     "takeoffVelocity": 2.8,
     "takeoffVelocityPerpendicular": true,
     "performanceFunction": {
         "type":"power",
-        "power":2.5
+        "power":6.0
     }
   },
   "modes": {
