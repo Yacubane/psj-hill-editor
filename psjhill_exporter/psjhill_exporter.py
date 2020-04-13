@@ -41,8 +41,8 @@ class PsjHillEditor(lib.inkex.EffectExtension):
         self.load_build_info()
         self.prepare_paths()
         self.add_textures()
-        self.pack_textures()
         self.generate_hill_model()
+        self.pack_textures()
         self.generate_hill_meta()
         self.generate_manifest()
         self.zipdir(sys.path[0] + '/output/')
@@ -291,7 +291,7 @@ class PsjHillEditor(lib.inkex.EffectExtension):
         inkscape(self.options.input_file, **{
             'export-width': export_width,
             'export-id': node_id,
-            'export-file': path+id+'.png',
+            'export-png': path+id+'.png',
             'export-id-only': ''
         })
 
