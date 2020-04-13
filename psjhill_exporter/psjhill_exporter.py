@@ -230,7 +230,7 @@ class PsjHillEditor(lib.inkex.EffectExtension):
                 self.recursively_iterate(child, layers)
 
     def zipdir(self, path):
-        zipf = zipfile.ZipFile('output.zip', 'w', zipfile.ZIP_DEFLATED)
+        zipf = zipfile.ZipFile('output.psj', 'w', zipfile.ZIP_DEFLATED)
         length = len(path)
         for root, dirs, files in os.walk(path):
             folder = root[length:]
