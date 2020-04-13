@@ -121,7 +121,7 @@ def generate_polygon_vertices_nodes_between(node, nodes_between, add_last=False)
 
 def absolute_points(node, vertices):
     vertices = [node.composed_transform().apply_to_point(point)
-                 for point in vertices]
+                for point in vertices]
     return [[point[0], point[1]] for point in vertices]
 
 

@@ -37,262 +37,16 @@ class PsjHillEditor(lib.inkex.EffectExtension):
             help="Build informations",
         )
 
-    def zipdir(self, path, ziph):
-        length = len(path)
-        for root, dirs, files in os.walk(path):
-            folder = root[length:]
-            for file in files:
-                ziph.write(os.path.join(root, file),
-                           os.path.join(folder, file))
-
-    def get_special_path_points(self, specialType, dst, debug=False):
-        path = util.xpath(
-            self.document, '//*[@psjhill:type="special" and @psjhill:special-type="'+specialType+'"]')
-        if len(path) != 1:
-            raise Exception(
-                "There must be 1 " + specialType + ", found: " + str(len(path)))
-        vertices = util.absolute_points(path[0],
-                                        util.generate_polygon_vertices_dst(path[0], dst, True, debug=debug))
-        vertices = util.ensure_right_pointing_vertices(vertices)
-        return vertices
-
     def effect(self):
-        with open(self.options.build) as json_file:
-            self.build_info = json.load(json_file)
-
-        if Path(sys.path[0] + "/output").exists():
-            rmtree(sys.path[0] + "/output")
-        Path(sys.path[0] +
-             "/output/textures").mkdir(parents=True, exist_ok=True)
-        Path(sys.path[0] + "/output/modes").mkdir(parents=True, exist_ok=True)
-        Path(sys.path[0] +
-             "/output/tmp/textures").mkdir(parents=True, exist_ok=True)
-
-        modes = self.build_info['modes']
-        input_file_dir = Path(self.options.input_file).parent
-        for key in modes:
-            copyfile(str(input_file_dir) + '/' +
-                     modes[key], sys.path[0] + '/output/modes/'+modes[key])
-        copyfile(str(input_file_dir) + '/' +
-                 self.build_info['icon'], sys.path[0] + '/output/'+self.build_info['icon'])
-
-        texture_nodes = util.xpath(
-            self.document, '//*[@psjhill:type="texture"]')
-        self.textures = []
-        for texture_node in texture_nodes:
-            self.textures.append(self.export_texture(
-                texture_node, sys.path[0] + "/output/tmp/textures/"))
-
-        for texture_path in self.build_info['additionalTextures']:
-            file = Path(texture_path)
-            copyfile(str(input_file_dir) + '/' +
-                     texture_path, sys.path[0] + '/output/tmp/textures/'+file.name)
-            self.textures.append(
-                {
-                    "texture-id": file.stem
-                })
-
-        start_gate_fg_texture_nodes = util.xpath(
-            self.document, '//*[@psjhill:special-type="start-gate-foreground-texture"]')
-        start_gate_bg_texture_nodes = util.xpath(
-            self.document, '//*[@psjhill:special-type="start-gate-background-texture"]')
-        start_gate_texture_position_nodes = util.xpath(
-            self.document, '//*[@psjhill:special-type="start-gate-texture-position"]')
-
-        start_gate_fg_texture_id = None
-        start_gate_fg_texture_size = None
-        start_gate_fg_texture_offset = None
-        start_gate_bg_texture_id = None
-        start_gate_bg_texture_size = None
-        start_gate_bg_texture_offset = None
-        if len(start_gate_bg_texture_nodes) == 1 and len(start_gate_fg_texture_nodes) == 1 and len(start_gate_texture_position_nodes) == 1:
-            start_gate_bg_texture_id = util.get_psjhill_attrib(
-                start_gate_bg_texture_nodes[0], 'id', raise_if_none=True)
-            start_gate_fg_texture_id = util.get_psjhill_attrib(
-                start_gate_fg_texture_nodes[0], 'id', raise_if_none=True)
-
-            self.textures.append(self.export_texture(
-                start_gate_bg_texture_nodes[0], sys.path[0] + "/output/tmp/textures/"))
-            self.textures.append(self.export_texture(
-                start_gate_fg_texture_nodes[0], sys.path[0] + "/output/tmp/textures/"))
-
-            start_gate_bg_texture_bbox = util.get_absolute_bounding_box(
-                start_gate_bg_texture_nodes[0])
-            start_gate_bg_texture_size = [
-                start_gate_bg_texture_bbox.width, start_gate_bg_texture_bbox.height]
-            start_gate_fg_texture_bbox = util.get_absolute_bounding_box(
-                start_gate_fg_texture_nodes[0])
-            start_gate_fg_texture_size = [
-                start_gate_fg_texture_bbox.width, start_gate_fg_texture_bbox.height]
-
-            start_gate_texture_position_bbox = util.get_absolute_bounding_box(
-                start_gate_texture_position_nodes[0])
-            start_gate_texture_position_vertex = [(start_gate_texture_position_bbox.x.minimum + start_gate_texture_position_bbox.x.maximum)/2,
-                                                  (start_gate_texture_position_bbox.y.minimum + start_gate_texture_position_bbox.y.maximum)/2]
-
-            start_gate_bg_texture_vertex = [
-                start_gate_bg_texture_bbox.x.minimum, start_gate_bg_texture_bbox.y.maximum]
-            start_gate_fg_texture_vertex = [
-                start_gate_fg_texture_bbox.x.minimum, start_gate_fg_texture_bbox.y.maximum]
-
-            start_gate_bg_texture_offset = [start_gate_bg_texture_vertex[0] - start_gate_texture_position_vertex[0],
-                                            start_gate_bg_texture_vertex[1] - start_gate_texture_position_vertex[1]]
-            start_gate_fg_texture_offset = [start_gate_fg_texture_vertex[0] - start_gate_texture_position_vertex[0],
-                                            start_gate_fg_texture_vertex[1] - start_gate_texture_position_vertex[1]]
-
-        subprocess.run(["java", "-jar", sys.path[0] + "/texture_packer/runnable-texturepacker.jar",
-                        sys.path[0] + "/output/tmp/textures", sys.path[0] + "/output/textures", "textures", sys.path[0] + "/files/pack.json"])
-        rmtree(sys.path[0] + "/output/tmp")
-
-        in_run_path = self.get_special_path_points(
-            'in-run-physics', 1, debug=True)
-        out_run_path = self.get_special_path_points('out-run-physics', 1)
-        out_run_top_path = self.get_special_path_points('out-run-top', 1)
-        out_run_bottom_path = self.get_special_path_points('out-run-bottom', 1)
-        start_bar_area = self.get_special_path_points('start-gates-area', 10)
-        start_bar_area = [start_bar_area[0], start_bar_area[-1]]
-        hill_size_cross = self.get_special_path_points('hill-size-cross', 1)
-        hill_size_cross = [hill_size_cross[0], hill_size_cross[-1]]
-
-        viewpoint = util.xpath(
-            self.document, '//*[@psjhill:type="special" and @psjhill:special-type="viewpoint"]')
-        viewpoint_bbox = util.get_absolute_bounding_box(viewpoint[0])
-        viewpoint_vertex = [(viewpoint_bbox.x.minimum + viewpoint_bbox.x.maximum)/2,
-                            (viewpoint_bbox.y.minimum + viewpoint_bbox.y.maximum)/2]
-
-        first = None
-        intersect_point = None
-        distance = 0
-        for vertex in out_run_path:
-            if first is not None:
-                intersect_point = util.intersect_segments(
-                    first, vertex, hill_size_cross[0], hill_size_cross[1])
-                if intersect_point is not None:
-                    distance += util.point_point_dst(first, intersect_point)
-                    break
-                else:
-                    distance += util.point_point_dst(first, vertex)
-            first = vertex
-        if intersect_point is None:
-            raise Exception(
-                'Hill size cross does not cross with out run physic')
-
-        layers = []
-        self.recursively_iterate(self.document.getroot(), layers)
-        split_layers = {
-            'background': [layer for layer in layers if layer['layer_type'] == 'BACKGROUND'],
-            'hillBody': [layer for layer in layers if layer['layer_type'] == 'HILL_BODY'],
-            'hillBackground': [layer for layer in layers if layer['layer_type'] == 'HILL_BACKGROUND'],
-            'hillForeground': [layer for layer in layers if layer['layer_type'] == 'HILL_FOREGROUND'],
-            'foreground': [layer for layer in layers if layer['layer_type'] == 'FOREGROUND']
-        }
-
-        for key in split_layers:
-            split_layers[key] = sorted(
-                split_layers[key], key=lambda x: x['layer_num'], reverse=False)
-            for layer in split_layers[key]:
-                del layer['layer_num']
-                del layer['layer_type']
-
-        K = self.build_info['constructionPoint']
-        HS = self.build_info['hillSize']
-
-        texturePaths = []
-        if Path(sys.path[0] + "/output/textures/textures.atlas").exists():
-            texturePaths = ['textures/textures.atlas']
-
-        hill_model = {
-            'texturePaths': texturePaths,
-            'viewpointVertex': viewpoint_vertex,
-            'inRunVertices': in_run_path,
-            'outRunVertices': out_run_path,
-            'outRunTopBorderVertices': out_run_top_path,
-            'outRunBottomBorderVertices': out_run_bottom_path,
-            'startGatesArea': start_bar_area,
-            'startGateForegroundTextureId': start_gate_fg_texture_id,
-            'startGateForegroundTextureSize': start_gate_fg_texture_size,
-            'startGateForegroundTextureOffset': start_gate_fg_texture_offset,
-            'startGateBackgroundTextureId': start_gate_bg_texture_id,
-            'startGateBackgroundTextureSize': start_gate_bg_texture_size,
-            'startGateBackgroundTextureOffset': start_gate_bg_texture_offset,
-            'sizes': {
-                'hillSizePathLength': distance,
-                'constructionPointPathLength': distance * K/HS,
-                'inRunPathLength': util.calc_vertices_path_size(in_run_path),
-                'outRunPathLength': util.calc_vertices_path_size(out_run_path),
-            },
-            'layers': split_layers
-        }
-
-        with open(sys.path[0] + "/output/hill_model.json", "w") as text_file:
-            text_file.write(json.dumps(json.loads(json.dumps(
-                hill_model), parse_float=lambda x: round(float(x), 4))))
-
-        hill_meta = {
-            "id": self.build_info['id'],
-            "name": self.build_info['name'],
-            "versionName": self.build_info['versionName'],
-            "version": self.build_info['version'],
-            "author": self.build_info['author'],
-            "description": self.build_info['description'],
-            "country": self.build_info['country'],
-            "place": self.build_info['place'],
-            "icon": self.build_info['icon'],
-            "constructionPoint": self.build_info['constructionPoint'],
-            "hillSize": self.build_info['hillSize'],
-            "noOfStartGates": self.build_info['noOfStartGates'],
-            "defaultStartGate": self.build_info['defaultStartGate'],
-            "defaultCompetitiveStartGate": self.build_info['defaultCompetitiveStartGate'],
-            "defaultMode": self.build_info['defaultMode'],
-            "defaultCompetitiveMode": self.build_info['defaultCompetitiveMode'],
-            "defaultSnowing": self.build_info['defaultSnowing'],
-            "defaultCompetitiveSnowing": self.build_info['defaultCompetitiveSnowing'],
-            "physics": self.build_info['physics'],
-            "modes":
-            {key: {
-                "modeData": 'modes/' + self.build_info['modes'][key],
-                "hillModelData": "hill_model.json"
-            } for key in self.build_info['modes']}
-        }
-        with open(sys.path[0] + "/output/hill_meta.json", "w") as text_file:
-            text_file.write(json.dumps(hill_meta, indent=4))
-
-        manifest = {
-            "type": "psjhill",
-            "version": 1,
-            "data": "hill_meta.json"
-        }
-
-        with open(sys.path[0] + "/output/manifest.json", "w") as text_file:
-            text_file.write(json.dumps(manifest, indent=4))
-
-        zipf = zipfile.ZipFile('output.zip', 'w', zipfile.ZIP_DEFLATED)
-        self.zipdir(sys.path[0] + '/output/', zipf)
-        zipf.close()
+        self.load_build_info()
+        self.prepare_paths()
+        self.add_textures()
+        self.pack_textures()
+        self.generate_hill_model()
+        self.generate_hill_meta()
+        self.generate_manifest()
+        self.zipdir(sys.path[0] + '/output/')
         rmtree(sys.path[0] + "/output")
-
-    def export_texture(self, node, path):
-        node_id = node.get_id()
-        bbox = util.get_absolute_bounding_box(node)
-
-        id = util.get_psjhill_attrib(node, 'id', raise_if_none=True)
-        multiplier = util.get_psjhill_attrib(
-            node, 'texture-multiplier', raise_if_none=True)
-        multiplier = float(multiplier)
-        export_width = int(bbox.width * float(multiplier))
-        inkscape(self.options.input_file, **{
-            'export-width': export_width,
-            'export-id': node_id,
-            'export-file': path+id+'.png',
-            'export-id-only': ''
-        })
-
-        return {
-            "texture-id": id,
-            "export-aprox-width": export_width,
-            "export-aprox-height": int(bbox.height / bbox.width * export_width),
-            'export-file': path+id+'.png'
-        }
 
     def recursively_iterate_layer(self, node, layer_num, objects, shape_group):
         if isinstance(node, PathElement) and util.get_psjhill_attrib(node, "type") == "shape":
@@ -330,7 +84,7 @@ class PsjHillEditor(lib.inkex.EffectExtension):
             if generate_type == "NODES":
                 vertices = util.generate_polygon_vertices_nodes_between(
                     node, generate_nodes_count_between, add_last=True)
-            else:
+            else:  # type = DISTANCE or none
                 vertices = util.generate_polygon_vertices_dst(
                     node, generate_distance_between_nodes, add_last=True)
             vertices = [node.composed_transform().apply_to_point(point)
@@ -474,6 +228,271 @@ class PsjHillEditor(lib.inkex.EffectExtension):
         else:
             for child in node.getchildren():
                 self.recursively_iterate(child, layers)
+
+    def zipdir(self, path):
+        zipf = zipfile.ZipFile('output.zip', 'w', zipfile.ZIP_DEFLATED)
+        length = len(path)
+        for root, dirs, files in os.walk(path):
+            folder = root[length:]
+            for file in files:
+                zipf.write(os.path.join(root, file),
+                           os.path.join(folder, file))
+        zipf.close
+
+    def load_build_info(self):
+        with open(self.options.build) as json_file:
+            self.build_info = json.load(json_file)
+
+    def prepare_paths(self):
+        if Path(sys.path[0] + "/output").exists():
+            rmtree(sys.path[0] + "/output")
+        Path(sys.path[0] +
+             "/output/textures").mkdir(parents=True, exist_ok=True)
+        Path(sys.path[0] + "/output/modes").mkdir(parents=True, exist_ok=True)
+        Path(sys.path[0] +
+             "/output/tmp/textures").mkdir(parents=True, exist_ok=True)
+
+        modes = self.build_info['modes']
+        input_file_dir = Path(self.options.input_file).parent
+        for key in modes:
+            copyfile(str(input_file_dir) + '/' +
+                     modes[key], sys.path[0] + '/output/modes/'+modes[key])
+        copyfile(str(input_file_dir) + '/' +
+                 self.build_info['icon'], sys.path[0] + '/output/'+self.build_info['icon'])
+
+    def add_textures(self):
+        input_file_dir = Path(self.options.input_file).parent
+        texture_nodes = util.xpath(
+            self.document, '//*[@psjhill:type="texture"]')
+
+        self.textures = []
+        for texture_node in texture_nodes:
+            self.textures.append(self.export_texture(
+                texture_node, sys.path[0] + "/output/tmp/textures/"))
+
+        for texture_path in self.build_info['additionalTextures']:
+            file = Path(texture_path)
+            copyfile(str(input_file_dir) + '/' +
+                     texture_path, sys.path[0] + '/output/tmp/textures/'+file.name)
+            self.textures.append(
+                {
+                    "texture-id": file.stem
+                })
+
+    def export_texture(self, node, path):
+        node_id = node.get_id()
+        bbox = util.get_absolute_bounding_box(node)
+
+        id = util.get_psjhill_attrib(node, 'id', raise_if_none=True)
+        multiplier = util.get_psjhill_attrib(
+            node, 'texture-multiplier', raise_if_none=True)
+        multiplier = float(multiplier)
+        export_width = int(bbox.width * float(multiplier))
+        inkscape(self.options.input_file, **{
+            'export-width': export_width,
+            'export-id': node_id,
+            'export-file': path+id+'.png',
+            'export-id-only': ''
+        })
+
+        return {
+            "texture-id": id,
+            "export-aprox-width": export_width,
+            "export-aprox-height": int(bbox.height / bbox.width * export_width),
+            'export-file': path+id+'.png'
+        }
+
+    def pack_textures(self):
+        subprocess.run(["java", "-jar", sys.path[0] + "/texture_packer/runnable-texturepacker.jar",
+                        sys.path[0] + "/output/tmp/textures", sys.path[0] + "/output/textures", "textures", sys.path[0] + "/files/pack.json"])
+        rmtree(sys.path[0] + "/output/tmp")
+
+    def generate_hill_model(self):
+        start_gate_info = self.get_startgate_info()
+        in_run_path = self.get_special_path_points(
+            'in-run-physics', 1, debug=True)
+        out_run_path = self.get_special_path_points('out-run-physics', 1)
+        out_run_top_path = self.get_special_path_points('out-run-top', 1)
+        out_run_bottom_path = self.get_special_path_points('out-run-bottom', 1)
+        start_bar_area = self.get_special_path_points('start-gates-area', 10)
+        start_bar_area = [start_bar_area[0], start_bar_area[-1]]
+        hill_size_cross = self.get_special_path_points('hill-size-cross', 1)
+        hill_size_cross = [hill_size_cross[0], hill_size_cross[-1]]
+
+        viewpoint = util.xpath(
+            self.document, '//*[@psjhill:type="special" and @psjhill:special-type="viewpoint"]')
+        viewpoint_bbox = util.get_absolute_bounding_box(viewpoint[0])
+        viewpoint_vertex = [(viewpoint_bbox.x.minimum + viewpoint_bbox.x.maximum)/2,
+                            (viewpoint_bbox.y.minimum + viewpoint_bbox.y.maximum)/2]
+
+        first = None
+        intersect_point = None
+        distance = 0
+        for vertex in out_run_path:
+            if first is not None:
+                intersect_point = util.intersect_segments(
+                    first, vertex, hill_size_cross[0], hill_size_cross[1])
+                if intersect_point is not None:
+                    distance += util.point_point_dst(first, intersect_point)
+                    break
+                else:
+                    distance += util.point_point_dst(first, vertex)
+            first = vertex
+        if intersect_point is None:
+            raise Exception(
+                'Hill size cross does not cross with out run physic')
+
+        layers = []
+        self.recursively_iterate(self.document.getroot(), layers)
+        split_layers = {
+            'background': [layer for layer in layers if layer['layer_type'] == 'BACKGROUND'],
+            'hillBody': [layer for layer in layers if layer['layer_type'] == 'HILL_BODY'],
+            'hillBackground': [layer for layer in layers if layer['layer_type'] == 'HILL_BACKGROUND'],
+            'hillForeground': [layer for layer in layers if layer['layer_type'] == 'HILL_FOREGROUND'],
+            'foreground': [layer for layer in layers if layer['layer_type'] == 'FOREGROUND']
+        }
+
+        for key in split_layers:
+            split_layers[key] = sorted(
+                split_layers[key], key=lambda x: x['layer_num'], reverse=False)
+            for layer in split_layers[key]:
+                del layer['layer_num']
+                del layer['layer_type']
+
+        K = self.build_info['constructionPoint']
+        HS = self.build_info['hillSize']
+
+        texturePaths = []
+        if Path(sys.path[0] + "/output/textures/textures.atlas").exists():
+            texturePaths = ['textures/textures.atlas']
+
+        hill_model = {
+            'texturePaths': texturePaths,
+            'viewpointVertex': viewpoint_vertex,
+            'inRunVertices': in_run_path,
+            'outRunVertices': out_run_path,
+            'outRunTopBorderVertices': out_run_top_path,
+            'outRunBottomBorderVertices': out_run_bottom_path,
+            'startGatesArea': start_bar_area,
+            'startGateForegroundTextureId': start_gate_info[0],
+            'startGateForegroundTextureSize': start_gate_info[1],
+            'startGateForegroundTextureOffset': start_gate_info[2],
+            'startGateBackgroundTextureId': start_gate_info[3],
+            'startGateBackgroundTextureSize': start_gate_info[4],
+            'startGateBackgroundTextureOffset': start_gate_info[5],
+            'sizes': {
+                'hillSizePathLength': distance,
+                'constructionPointPathLength': distance * K/HS,
+                'inRunPathLength': util.calc_vertices_path_size(in_run_path),
+                'outRunPathLength': util.calc_vertices_path_size(out_run_path),
+            },
+            'layers': split_layers
+        }
+
+        with open(sys.path[0] + "/output/hill_model.json", "w") as text_file:
+            text_file.write(json.dumps(json.loads(json.dumps(
+                hill_model), parse_float=lambda x: round(float(x), 4))))
+
+    def generate_hill_meta(self):
+        hill_meta = {
+            "id": self.build_info['id'],
+            "name": self.build_info['name'],
+            "versionName": self.build_info['versionName'],
+            "version": self.build_info['version'],
+            "author": self.build_info['author'],
+            "description": self.build_info['description'],
+            "country": self.build_info['country'],
+            "place": self.build_info['place'],
+            "icon": self.build_info['icon'],
+            "constructionPoint": self.build_info['constructionPoint'],
+            "hillSize": self.build_info['hillSize'],
+            "noOfStartGates": self.build_info['noOfStartGates'],
+            "defaultStartGate": self.build_info['defaultStartGate'],
+            "defaultCompetitiveStartGate": self.build_info['defaultCompetitiveStartGate'],
+            "defaultMode": self.build_info['defaultMode'],
+            "defaultCompetitiveMode": self.build_info['defaultCompetitiveMode'],
+            "defaultSnowing": self.build_info['defaultSnowing'],
+            "defaultCompetitiveSnowing": self.build_info['defaultCompetitiveSnowing'],
+            "physics": self.build_info['physics'],
+            "modes":
+            {key: {
+                "modeData": 'modes/' + self.build_info['modes'][key],
+                "hillModelData": "hill_model.json"
+            } for key in self.build_info['modes']}
+        }
+        with open(sys.path[0] + "/output/hill_meta.json", "w") as text_file:
+            text_file.write(json.dumps(hill_meta, indent=4))
+
+    def generate_manifest(self):
+        manifest = {
+            "type": "psjhill",
+            "version": 1,
+            "data": "hill_meta.json"
+        }
+        with open(sys.path[0] + "/output/manifest.json", "w") as text_file:
+            text_file.write(json.dumps(manifest, indent=4))
+
+    def get_special_path_points(self, specialType, dst, debug=False):
+        path = util.xpath(
+            self.document, '//*[@psjhill:type="special" and @psjhill:special-type="'+specialType+'"]')
+        if len(path) != 1:
+            raise Exception(
+                "There must be 1 " + specialType + ", found: " + str(len(path)))
+        vertices = util.absolute_points(path[0],
+                                        util.generate_polygon_vertices_dst(path[0], dst, True, debug=debug))
+        vertices = util.ensure_right_pointing_vertices(vertices)
+        return vertices
+
+    def get_startgate_info(self):
+        start_gate_fg_texture_nodes = util.xpath(
+            self.document, '//*[@psjhill:special-type="start-gate-foreground-texture"]')
+        start_gate_bg_texture_nodes = util.xpath(
+            self.document, '//*[@psjhill:special-type="start-gate-background-texture"]')
+        start_gate_texture_position_nodes = util.xpath(
+            self.document, '//*[@psjhill:special-type="start-gate-texture-position"]')
+
+        start_gate_fg_texture_id = None
+        start_gate_fg_texture_size = None
+        start_gate_fg_texture_offset = None
+        start_gate_bg_texture_id = None
+        start_gate_bg_texture_size = None
+        start_gate_bg_texture_offset = None
+        if len(start_gate_bg_texture_nodes) == 1 and len(start_gate_fg_texture_nodes) == 1 and len(start_gate_texture_position_nodes) == 1:
+            start_gate_bg_texture_id = util.get_psjhill_attrib(
+                start_gate_bg_texture_nodes[0], 'id', raise_if_none=True)
+            start_gate_fg_texture_id = util.get_psjhill_attrib(
+                start_gate_fg_texture_nodes[0], 'id', raise_if_none=True)
+
+            self.textures.append(self.export_texture(
+                start_gate_bg_texture_nodes[0], sys.path[0] + "/output/tmp/textures/"))
+            self.textures.append(self.export_texture(
+                start_gate_fg_texture_nodes[0], sys.path[0] + "/output/tmp/textures/"))
+
+            start_gate_bg_texture_bbox = util.get_absolute_bounding_box(
+                start_gate_bg_texture_nodes[0])
+            start_gate_bg_texture_size = [
+                start_gate_bg_texture_bbox.width, start_gate_bg_texture_bbox.height]
+            start_gate_fg_texture_bbox = util.get_absolute_bounding_box(
+                start_gate_fg_texture_nodes[0])
+            start_gate_fg_texture_size = [
+                start_gate_fg_texture_bbox.width, start_gate_fg_texture_bbox.height]
+
+            start_gate_texture_position_bbox = util.get_absolute_bounding_box(
+                start_gate_texture_position_nodes[0])
+            start_gate_texture_position_vertex = [(start_gate_texture_position_bbox.x.minimum + start_gate_texture_position_bbox.x.maximum)/2,
+                                                  (start_gate_texture_position_bbox.y.minimum + start_gate_texture_position_bbox.y.maximum)/2]
+
+            start_gate_bg_texture_vertex = [
+                start_gate_bg_texture_bbox.x.minimum, start_gate_bg_texture_bbox.y.maximum]
+            start_gate_fg_texture_vertex = [
+                start_gate_fg_texture_bbox.x.minimum, start_gate_fg_texture_bbox.y.maximum]
+
+            start_gate_bg_texture_offset = [start_gate_bg_texture_vertex[0] - start_gate_texture_position_vertex[0],
+                                            start_gate_bg_texture_vertex[1] - start_gate_texture_position_vertex[1]]
+            start_gate_fg_texture_offset = [start_gate_fg_texture_vertex[0] - start_gate_texture_position_vertex[0],
+                                            start_gate_fg_texture_vertex[1] - start_gate_texture_position_vertex[1]]
+        return (start_gate_fg_texture_id, start_gate_fg_texture_size, start_gate_fg_texture_offset,
+                start_gate_bg_texture_id, start_gate_bg_texture_size, start_gate_bg_texture_offset)
 
 
 if __name__ == "__main__":

@@ -8,11 +8,11 @@ def clip_polygon(vertices, bounding_box, grid_size, optimize=True):
     points = [(verticle[0], verticle[1]) for verticle in vertices]
 
     bounding_box_x = bounding_box.left
-    while(bounding_box_x < bounding_box.left + bounding_box.width):
+    while bounding_box_x < bounding_box.left + bounding_box.width:
         bounding_box_x2 = min(
             bounding_box_x+grid_size, bounding_box.left + bounding_box.width)
         bounding_box_y = bounding_box.top
-        while(bounding_box_y < bounding_box.top + bounding_box.height):
+        while bounding_box_y < bounding_box.top + bounding_box.height:
             bounding_box_y2 = min(
                 bounding_box_y+grid_size, bounding_box.top + bounding_box.height)
 
@@ -25,7 +25,7 @@ def clip_polygon(vertices, bounding_box, grid_size, optimize=True):
             pc.AddPath(pyclipper.scale_to_clipper(
                 clip, SCALING_FACTOR), pyclipper.PT_CLIP)
             pc.AddPath(pyclipper.scale_to_clipper(points, SCALING_FACTOR),
-                        pyclipper.PT_SUBJECT)
+                       pyclipper.PT_SUBJECT)
 
             solution = pyclipper.scale_from_clipper(pc.Execute(
                 pyclipper.CT_INTERSECTION, pyclipper.PFT_EVENODD, pyclipper.PFT_EVENODD), SCALING_FACTOR)
@@ -46,17 +46,19 @@ def clip_polygon(vertices, bounding_box, grid_size, optimize=True):
         bounding_box_x = bounding_box_x+grid_size
     return output
 
+
 def clip_polygons(polygons, bounding_box, grid_size):
     first = True
-    output1 = clip_polygon(polygons[0], bounding_box, grid_size, optimize=False)
+    output1 = clip_polygon(
+        polygons[0], bounding_box, grid_size, optimize=False)
     for vertices in polygons:
         if first:
             first = False
         else:
-            output = clip_polygon(vertices, bounding_box, grid_size, optimize=False)
+            output = clip_polygon(vertices, bounding_box,
+                                  grid_size, optimize=False)
             for idx, val in enumerate(output):
                 for solution in val['vertices']:
                     output1[idx]['vertices'].append(solution)
     output1 = [val for val in output1 if len(val['vertices']) > 0]
     return output1
-   
